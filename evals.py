@@ -321,7 +321,7 @@ def main():
     if a.feedback:
         feedback_summary_path = Path(__file__).parent / "state" / "feedback_summary.json"
         if feedback_summary_path.exists():
-            with open(feedback_summary_path) as f:
+            with open(feedback_summary_path, encoding="utf-8") as f:
                 feedback_summary = json.load(f)
             print(f"\n=== Feedback Impact Analysis ===")
             print(f"Feedback entries analyzed: {feedback_summary.get('feedback_count', 0)}")
@@ -343,7 +343,7 @@ def main():
             print(f"Run: python3 feedback_analysis.py")
 
     Path(a.out).parent.mkdir(parents=True, exist_ok=True)
-    json.dump(results, open(a.out, "w"), indent=1)
+    json.dump(results, open(a.out, "w", encoding="utf-8"), indent=1)
     sys.exit(0 if passed_total == total else 1)
 
 

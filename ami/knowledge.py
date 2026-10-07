@@ -63,7 +63,7 @@ def _chunks():
     out = []
     for path in sorted(DOCS.glob("*/*.md")):
         category = path.parent.name
-        text = path.read_text()
+        text = path.read_text(encoding="utf-8")
         title = re.match(r"#\s*(.+)", text).group(1).strip()
         for part in re.split(r"\n(?=## )", text):
             body = part.strip()

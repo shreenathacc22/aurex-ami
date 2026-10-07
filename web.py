@@ -53,7 +53,7 @@ _session_flush_lock = threading.Lock()
 
 def load_sessions():
     try:
-        raw = json.loads(SESSIONS_FILE.read_text())
+        raw = json.loads(SESSIONS_FILE.read_text(encoding="utf-8"))
     except (OSError, json.JSONDecodeError):
         return
 
@@ -123,7 +123,7 @@ def _flush_sessions_sync():
                 "work": session["work"].to_dict(),
                 "created_at": session.get("created_at", datetime.utcnow().isoformat()),
             }
-        SESSIONS_FILE.write_text(json.dumps(raw))
+        SESSIONS_FILE.write_text(json.dumps(raw), encoding="utf-8")
     except OSError:
         pass
 
@@ -167,7 +167,7 @@ def save_feedback(golden_row_id, original_response, corrected_response, reason):
             "corrected_response": corrected_response,
             "reason": reason
         }
-        with open(FEEDBACK_FILE, "a") as f:
+        with open(FEEDBACK_FILE, "a", encoding="utf-8") as f:
             f.write(json.dumps(feedback_entry) + "\n")
     except OSError:
         pass
@@ -209,7 +209,7 @@ def state(session, user_id=None):
     }
 
 
-PAGE = (ROOT / "ui" / "chat.html").read_text()
+PAGE = (ROOT / "ui" / "chat.html").read_text(encoding="utf-8")
 PAGE = PAGE.replace("__MODEL__", MODEL).replace("__GREETING__", json.dumps(profile.GREETING))
 
 
@@ -291,7 +291,7 @@ class Handler(BaseHTTPRequestHandler):
     def do_GET(self):
         try:
             if self.path in ("/login", "/login.html"):
-                login_page = (ROOT / "ui" / "login.html").read_text()
+                login_page = (ROOT / "ui" / "login.html").read_text(encoding="utf-8")
                 self._send(login_page, "text/html")
                 return
 
@@ -319,7 +319,7 @@ class Handler(BaseHTTPRequestHandler):
                 self._send(json.dumps({"stats": observe.stats(), "events": observe.recent(120)}))
             elif self.path == "/trace.jsonl":
                 try:
-                    self._send(observe.LOGFILE.read_text(), "text/plain")
+                    self._send(observe.LOGFILE.read_text(encoding="utf-8"), "text/plain")
                 except OSError:
                     self._send("", "text/plain")
             else:

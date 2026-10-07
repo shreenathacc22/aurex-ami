@@ -70,7 +70,7 @@ def log_action(
     # Append to JSONL file (thread-safe)
     with _write_lock:
         try:
-            with open(LOG_FILE, "a") as f:
+            with open(LOG_FILE, "a", encoding="utf-8") as f:
                 f.write(json.dumps(entry) + "\n")
         except IOError as e:
             # Logging failed, but don't crash the request
@@ -166,7 +166,7 @@ def query_audit_log(
 
     results = []
     try:
-        with open(LOG_FILE, "r") as f:
+        with open(LOG_FILE, "r", encoding="utf-8") as f:
             for line in f:
                 if not line.strip():
                     continue

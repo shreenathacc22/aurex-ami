@@ -76,7 +76,7 @@ def _dates(text):
 
 
 def load(path=GOLDEN, only=""):
-    rows = json.loads(Path(path).read_text())
+    rows = json.loads(Path(path).read_text(encoding="utf-8"))
     for row in rows:
         row["reference"] = _dates(row["reference"])
     return [r for r in rows if only.lower() in r["id"].lower()]
@@ -364,7 +364,7 @@ def main():
           f"${agent_cost + judge_cost:.3f}  ·  "
           f"{sum(o['ms'] for o in flat) / 1000:.0f}s")
     Path(a.out).parent.mkdir(parents=True, exist_ok=True)
-    json.dump(results, open(a.out, "w"), indent=1)
+    json.dump(results, open(a.out, "w", encoding="utf-8"), indent=1)
     sys.exit(0 if passed == total else 1)
 
 

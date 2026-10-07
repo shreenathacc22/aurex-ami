@@ -49,7 +49,7 @@ def _replay():
     The file is the record; the list in memory is just the fast view of it.
     """
     try:
-        lines = LOGFILE.read_text().splitlines()[-MAX_EVENTS:]
+        lines = LOGFILE.read_text(encoding="utf-8").splitlines()[-MAX_EVENTS:]
     except OSError:
         return
     global SEQ
@@ -98,7 +98,7 @@ def log(kind, **fields):
         del EVENTS[:-MAX_EVENTS]
         try:
             LOGFILE.parent.mkdir(exist_ok=True)
-            with LOGFILE.open("a") as f:
+            with LOGFILE.open("a", encoding="utf-8") as f:
                 f.write(json.dumps(event) + "\n")
         except OSError:
             pass                      # never let logging break the agent
