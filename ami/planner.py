@@ -19,6 +19,7 @@ That one change buys three things:
 
 import json
 
+from ami import policy
 from ami import tools
 from ami.llm import MODEL, complete
 
@@ -72,19 +73,32 @@ def _schemas_with_thought():
 SCHEMAS = _schemas_with_thought()
 
 
-def react(convo, work, trace=True, steps=None, extra=None):
+def notes(work, longterm=None, extra=None):
+    """Everything the model should know beyond the transcript, as one note."""
+    parts = [work.brief()]
+    if longterm is not None:
+        parts.append(longterm.recall(work.customer_email,
+                                     getattr(work, "session_id", None)))
+    parts.append(extra)
+    parts = [p for p in parts if p]
+    return "\n\n".join(parts) if parts else None
+
+
+def react(convo, work, trace=True, steps=None, longterm=None, extra=None):
     """Run the ReAct loop until the agent produces an answer for the customer.
 
-    convo : ConversationMemory — what was said, sent in full to the model
-    work  : WorkingMemory      — what is known, injected as a short note
-    trace : print the Thought/Action/Observation trace to the terminal
-    steps : optional list; each step is appended as a dict so a caller
-            (the web UI) can render the trace instead of printing it
+    convo    : ConversationMemory — what was said, sent in full to the model
+    work     : WorkingMemory      — what is known, injected as a short note
+    longterm : LongTermMemory     — what we know about this customer already
+    extra    : a one-off note (e.g. from the input policy check)
+    trace    : print the Thought/Action/Observation trace to the terminal
+    steps    : optional list; each step is appended as a dict so a caller
+               (the web UI) can render the trace instead of printing it
     """
     for step in range(1, MAX_STEPS + 1):
         # Working memory is re-read before EVERY step, so the agent plans
         # against what it has already established, not just the transcript.
-        response = complete(convo.messages(extra_system=work.brief()),
+        response = complete(convo.messages(extra_system=notes(work, longterm, extra)),
                             tools=SCHEMAS)
         message = response.choices[0].message
         convo.add_assistant(message.model_dump(exclude_none=True))
@@ -102,9 +116,9 @@ def react(convo, work, trace=True, steps=None, extra=None):
 
             # Pull the reasoning out; it is for us, not for the tool.
             thought = args.pop("thought", "(no thought given)")
-            # Thread scope through all tool calls for data isolation (CRITICAL)
-            scope = getattr(work, 'scope', None)
-            result = tools.run(name, args, scope=scope)
+            # Policy first, then the tool. guarded_run carries work.scope
+            # through to the tool for data isolation.
+            result = policy.guarded_run(name, args, work)
             work.record(name, args, result)      # <- the observation updates what we know
 
             if steps is not None:
@@ -139,22 +153,24 @@ Break down your reasoning into clear steps before acting.
 """
 
 
-def chains_of_thought(convo, work, trace=True, steps=None):
+def chains_of_thought(convo, work, trace=True, steps=None, longterm=None, extra=None):
     """Run the chains-of-thought loop until the agent produces an answer.
 
     Chains of thought: the agent reasons through the problem step-by-step
     before making tool calls, with explicit intermediate reasoning steps.
 
-    convo : ConversationMemory — what was said, sent in full to the model
-    work  : WorkingMemory      — what is known, injected as a short note
-    trace : print the Thought/Action/Observation trace to the terminal
-    steps : optional list; each step is appended as a dict so a caller
-            (the web UI) can render the trace instead of printing it
+    convo    : ConversationMemory — what was said, sent in full to the model
+    work     : WorkingMemory      — what is known, injected as a short note
+    longterm : LongTermMemory     — what we know about this customer already
+    extra    : a one-off note (e.g. from the input policy check)
+    trace    : print the Thought/Action/Observation trace to the terminal
+    steps    : optional list; each step is appended as a dict so a caller
+               (the web UI) can render the trace instead of printing it
     """
     for step in range(1, MAX_STEPS + 1):
         # Working memory is re-read before EVERY step, so the agent plans
         # against what it has already established, not just the transcript.
-        response = complete(convo.messages(extra_system=work.brief()),
+        response = complete(convo.messages(extra_system=notes(work, longterm, extra)),
                             tools=SCHEMAS)
         message = response.choices[0].message
         convo.add_assistant(message.model_dump(exclude_none=True))
@@ -172,9 +188,9 @@ def chains_of_thought(convo, work, trace=True, steps=None):
 
             # Pull the reasoning out; it is for us, not for the tool.
             thought = args.pop("thought", "(no thought given)")
-            # Thread scope through all tool calls for data isolation (CRITICAL)
-            scope = getattr(work, 'scope', None)
-            result = tools.run(name, args, scope=scope)
+            # Policy first, then the tool. guarded_run carries work.scope
+            # through to the tool for data isolation.
+            result = policy.guarded_run(name, args, work)
             work.record(name, args, result)      # <- the observation updates what we know
 
             if steps is not None:

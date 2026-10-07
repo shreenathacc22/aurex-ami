@@ -103,6 +103,8 @@ class WorkingMemory:
 
     def record(self, tool, args, result):
         """Fold one Observation into what we know."""
+        if result.get("needs_confirmation"):
+            return                     # a preview changes nothing yet
         if tool == "find_orders" and "orders" in result:
             self.customer_email = args.get("email")
             for o in result["orders"]:

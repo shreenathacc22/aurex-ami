@@ -117,7 +117,9 @@ def guarded_run(name, args, work):
                                f"Only after they explicitly agree in their own words "
                                f"should you call again with confirmed='yes'."}
 
-    return tools.run(name, args)
+    # The signed-in customer's scope travels with every tool call so the
+    # order tools can refuse anything that is not theirs.
+    return tools.run(name, args, scope=getattr(work, "scope", None))
 
 
 # --------------------------------------------------------------------------

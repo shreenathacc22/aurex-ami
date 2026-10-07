@@ -40,6 +40,7 @@ import contextlib
 import importlib
 import io
 import json
+import re
 import sys
 import time
 from pathlib import Path
@@ -158,6 +159,28 @@ CASES = [
 ]
 
 
+_ORDER_ID = re.compile(r"112-\d{7}-\d{7}")
+_EMAIL = re.compile(r"[\w.+-]+@[\w.-]+\.\w+")
+DEFAULT_SCOPE = "raj@example.com"
+
+
+def scope_for(case, orders):
+    """Which customer is signed in for this case.
+
+    The tools refuse every order lookup without a scope (the signed-in
+    user's email), and only return orders that belong to it. The web UI
+    sets it at login; here we sign in as whoever owns the order the case
+    talks about, falling back to an email in the text, then to raj.
+    """
+    text = " ".join(case["turns"])
+    for order_id in _ORDER_ID.findall(text):
+        order = orders.get(order_id)
+        if order:
+            return order["email"]
+    emails = _EMAIL.findall(text)
+    return emails[0] if emails else DEFAULT_SCOPE
+
+
 def run_case(case, planner_name):
     """One fresh agent, one case. Returns what happened, not whether it passed."""
     from ami import store, tools, memory, planner, plan_execute, agent_profile, policy, observe
@@ -175,8 +198,8 @@ def run_case(case, planner_name):
         # this: a claim that is in the reply but not in here was invented.
         observed.append({"tool": name, "args": args, "result": result})
         return result
-    def spy_run(name, args, _r=real_run):
-        out = _r(name, args)
+    def spy_run(name, args, scope=None, _r=real_run):
+        out = _r(name, args, scope=scope)      # scope: data isolation, see tools.run
         executed.append(name)
         if "error" in out and not out.get("retry"):
             refused.append(name)
@@ -187,7 +210,7 @@ def run_case(case, planner_name):
                   "plan": (plan_execute.plan_execute, plan_execute.PLANNING_RULES),
                   "chains_of_thought": (planner.chains_of_thought, planner.CHAINS_OF_THOUGHT_RULES)}[planner_name]
     convo = memory.ConversationMemory(agent_profile.system_prompt() + rules)
-    work = memory.WorkingMemory()
+    work = memory.WorkingMemory(scope=scope_for(case, store.ORDERS))
     longterm = memory.LongTermMemory("/dev/null")    # evals never touch real customers
 
     seq0 = observe.SEQ
